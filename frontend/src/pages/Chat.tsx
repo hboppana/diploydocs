@@ -1,38 +1,45 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Send, Sparkles, ChevronDown, ExternalLink, ShieldCheck, AlertTriangle, MinusCircle,
+  AlertTriangle,
+  ChevronDown,
+  ExternalLink,
+  MinusCircle,
+  Send,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
-import { mockChat } from "../lib/mockData";
+import { api } from "../lib/api";
 import type { ChatMessage, ClaimSupport, VerifiedClaim } from "../lib/types";
 import { cn } from "../lib/utils";
 import { Logo } from "../components/Logo";
 
 export function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>(mockChat);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const [mode, setMode] = useState<"quick" | "research">("quick");
+  const [error, setError] = useState<string | null>(null);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
     if (!text || pending) return;
-    const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: "user", content: text };
-    setMessages((m) => [...m, userMsg]);
+
+    setMessages((m) => [...m, { id: `u_${Date.now()}`, role: "user", content: text }]);
     setInput("");
     setPending(true);
-    setTimeout(() => {
-      setMessages((m) => [
-        ...m,
-        {
-          id: `a_${Date.now()}`,
-          role: "assistant",
-          content:
-            "Demo mode — the LangGraph backend isn't wired up yet. The example above shows what a fully grounded answer looks like: every claim verified against retrieved chunks, with green / amber / red badges.",
-        },
-      ]);
+    setError(null);
+
+    try {
+      const trace: NonNullable<ChatMessage["trace"]> = [];
+      const answer = await api.chat(text, mode, (event) => trace.push(event));
+      setMessages((m) => [...m, { ...answer, trace: answer.trace ?? trace }]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to get an answer");
+    } finally {
       setPending(false);
-    }, 700);
+    }
   }
 
   return (
@@ -42,12 +49,12 @@ export function ChatPage() {
           <div>
             <h1 className="text-lg font-semibold tracking-tightish text-ink-900">Ask Diploy Docs</h1>
             <p className="text-xs text-ink-500 mt-0.5">
-              Self-correcting retrieval · per-claim citation verification · LangSmith traced
+              Self-correcting retrieval - per-claim citation verification - LangSmith traced
             </p>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="chip-brand"><span className="font-mono">All files</span></span>
-            <ModeToggle />
+            <ModeToggle mode={mode} setMode={setMode} />
           </div>
         </div>
       </div>
@@ -56,6 +63,7 @@ export function ChatPage() {
         <div className="max-w-3xl mx-auto space-y-6">
           {messages.map((m) => (m.role === "user" ? <UserBubble key={m.id} m={m} /> : <AssistantBubble key={m.id} m={m} />))}
           {pending && <PendingBubble />}
+          {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
           <ClaimLegend />
         </div>
       </div>
@@ -69,7 +77,7 @@ export function ChatPage() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question — try 'how long do auth sessions last?'"
+              placeholder="Ask a question - try 'how long do auth sessions last?'"
               className="flex-1 bg-transparent text-sm placeholder:text-ink-400 outline-none"
               disabled={pending}
             />
@@ -78,7 +86,7 @@ export function ChatPage() {
             </button>
           </form>
           <div className="mt-2 flex items-center justify-between text-2xs text-ink-500 font-mono">
-            <span>Press <span className="kbd">Enter</span> to send · <span className="kbd">⇧Enter</span> for newline</span>
+            <span>Press <span className="kbd">Enter</span> to send</span>
             <span>Powered by LangGraph + Gemini Flash</span>
           </div>
         </div>
@@ -99,14 +107,19 @@ function PendingBubble() {
           <span className="w-1.5 h-1.5 rounded-full bg-ink-400 animate-pulse-soft" style={{ animationDelay: "0.15s" }} />
           <span className="w-1.5 h-1.5 rounded-full bg-ink-400 animate-pulse-soft" style={{ animationDelay: "0.3s" }} />
         </span>
-        Retrieving and verifying…
+        Retrieving and verifying...
       </div>
     </div>
   );
 }
 
-function ModeToggle() {
-  const [mode, setMode] = useState<"quick" | "research">("quick");
+function ModeToggle({
+  mode,
+  setMode,
+}: {
+  mode: "quick" | "research";
+  setMode: (mode: "quick" | "research") => void;
+}) {
   return (
     <div className="inline-flex rounded-md border border-ink-200 p-0.5 bg-white">
       {(["quick", "research"] as const).map(m => (
@@ -143,7 +156,11 @@ function AssistantBubble({ m }: { m: ChatMessage }) {
       <div className="min-w-0 flex-1">
         <div className="card p-4 leading-relaxed">
           <p className="text-sm text-ink-800">
-            <VerifiedAnswer claims={m.verified ?? []} citations={m.citations ?? []} />
+            {m.verified?.length ? (
+              <VerifiedAnswer claims={m.verified} citations={m.citations ?? []} />
+            ) : (
+              m.content
+            )}
           </p>
 
           {m.citations && m.citations.length > 0 && (
@@ -154,7 +171,7 @@ function AssistantBubble({ m }: { m: ChatMessage }) {
                   <li key={c.n} className="text-xs text-ink-700 flex gap-2">
                     <span className="font-mono text-ink-400 shrink-0">[{c.n}]</span>
                     <Link to={`/files/${c.fileId}`} className="text-brand-700 hover:underline font-medium truncate">{c.fileName}</Link>
-                    <span className="text-ink-400 truncate hidden sm:inline">— {c.snippet}</span>
+                    <span className="text-ink-400 truncate hidden sm:inline">- {c.snippet}</span>
                   </li>
                 ))}
               </ol>
@@ -188,7 +205,7 @@ function AssistantBubble({ m }: { m: ChatMessage }) {
                   <span className="text-ink-400 w-4 text-right">{i + 1}</span>
                   <span className="text-brand-700 font-semibold min-w-[120px]">{t.node}</span>
                   <span className="text-ink-500 min-w-[60px] text-right tabular-nums">{t.ms}ms</span>
-                  {t.meta && <span className="text-ink-500 truncate">— {t.meta}</span>}
+                  {t.meta && <span className="text-ink-500 truncate">- {t.meta}</span>}
                 </li>
               ))}
             </ol>
@@ -200,7 +217,6 @@ function AssistantBubble({ m }: { m: ChatMessage }) {
 }
 
 function VerifiedAnswer({ claims, citations }: { claims: VerifiedClaim[]; citations: ChatMessage["citations"] }) {
-  if (!claims.length) return null;
   return (
     <>
       {claims.map((c, i) => (
@@ -233,7 +249,7 @@ function ClaimSpan({ claim, citationsByFile }: { claim: VerifiedClaim; citations
         </span>
         {ev ? (
           <>
-            <div className="text-2xs font-mono text-ink-500 mb-1">{ev.fileName} · chunk {ev.chunkId}</div>
+            <div className="text-2xs font-mono text-ink-500 mb-1">{ev.fileName} - chunk {ev.chunkId}</div>
             <div className="text-ink-700">{ev.snippet}</div>
           </>
         ) : (

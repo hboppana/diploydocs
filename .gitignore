@@ -1,5 +1,8 @@
 # dependencies
 node_modules/
+.venv/
+__pycache__/
+*.py[cod]
 
 # build output
 dist/
@@ -19,6 +22,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
+
+# local backend state
+data/
 
 # editor / OS
 .DS_Store

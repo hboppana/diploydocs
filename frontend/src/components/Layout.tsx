@@ -1,14 +1,16 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
+  Activity,
+  AlertTriangle,
   LayoutGrid,
   MessageSquare,
-  AlertTriangle,
-  Activity,
   Search,
   Sparkles,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
+import type { Stats } from "../lib/types";
 import { cn } from "../lib/utils";
-import { mockConflicts } from "../lib/mockData";
 import { Logo } from "./Logo";
 
 const nav = [
@@ -19,12 +21,17 @@ const nav = [
 
 export function Layout() {
   const { pathname } = useLocation();
-  const pendingConflicts = mockConflicts.filter((c) => c.status === "pending").length;
+  const [stats, setStats] = useState<Stats | null>(null);
+  const pendingConflicts = stats?.pendingConflicts ?? 0;
   const pageTitle =
     pathname === "/" ? "Library" :
     pathname.startsWith("/files") ? "File" :
     pathname === "/chat" ? "Ask" :
     pathname === "/conflicts" ? "Conflicts" : "";
+
+  useEffect(() => {
+    api.stats().then(setStats).catch(() => setStats(null));
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-white flex">
@@ -70,8 +77,8 @@ export function Layout() {
               All systems online
             </div>
             <div className="font-mono text-2xs text-ink-500 leading-relaxed">
-              <div>Redis · HNSW · 8 files</div>
-              <div>198 chunks · 80 claims</div>
+              <div>Chroma - HNSW - {stats?.files ?? 0} files</div>
+              <div>{stats?.chunks ?? 0} chunks - {stats?.claims ?? 0} claims</div>
             </div>
           </div>
         </div>
@@ -97,9 +104,9 @@ export function Layout() {
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400" />
               <input
                 className="input pl-8 w-72 h-8 text-xs"
-                placeholder="Search files, claims, chunks…"
+                placeholder="Search files, claims, chunks..."
               />
-              <span className="kbd absolute right-2 top-1/2 -translate-y-1/2">⌘K</span>
+              <span className="kbd absolute right-2 top-1/2 -translate-y-1/2">K</span>
             </div>
             <button className="btn-ghost btn-sm">Settings</button>
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-600 to-brand-800 grid place-items-center text-white text-xs font-semibold">

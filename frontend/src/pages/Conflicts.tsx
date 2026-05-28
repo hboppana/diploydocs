@@ -1,14 +1,39 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, GitMerge, FileText, ChevronDown } from "lucide-react";
-import { mockConflicts } from "../lib/mockData";
+import { api } from "../lib/api";
 import type { Conflict } from "../lib/types";
 import { cn, timeAgo } from "../lib/utils";
 
 export function ConflictsPage() {
-  const pending = mockConflicts.filter(c => c.status === "pending");
-  const resolved = mockConflicts.filter(c => c.status === "resolved");
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [resolvedOpen, setResolvedOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function refresh() {
+    api.conflicts()
+      .then((next) => {
+        setConflicts(next);
+        setError(null);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load conflicts"));
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const pending = conflicts.filter(c => c.status === "pending");
+  const resolved = conflicts.filter(c => c.status === "resolved");
+
+  async function resolve(id: string, resolution: NonNullable<Conflict["resolution"]>) {
+    try {
+      const updated = await api.resolveConflict(id, resolution);
+      setConflicts((items) => items.map((item) => item.id === id ? updated : item));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to resolve conflict");
+    }
+  }
 
   return (
     <div className="px-6 py-8 max-w-5xl mx-auto">
@@ -22,9 +47,15 @@ export function ConflictsPage() {
           )}
         </div>
         <p className="text-sm text-ink-500 mt-1 max-w-2xl">
-          When a new document is ingested, agents check its claims against the rest of your corpus. Contradictions surface here for review — pick one as authoritative, or mark both as context-dependent.
+          When a new document is ingested, agents check its claims against the rest of your corpus. Contradictions surface here for review - pick one as authoritative, or mark both as context-dependent.
         </p>
       </div>
+
+      {error && (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      )}
 
       {pending.length === 0 ? (
         <div className="card p-10 text-center">
@@ -36,7 +67,7 @@ export function ConflictsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {pending.map(c => <ConflictCard key={c.id} c={c} />)}
+          {pending.map(c => <ConflictCard key={c.id} c={c} onResolve={resolve} />)}
         </div>
       )}
 
@@ -51,7 +82,7 @@ export function ConflictsPage() {
           </button>
           {resolvedOpen && (
             <div className="mt-3 space-y-3 opacity-80">
-              {resolved.map(c => <ConflictCard key={c.id} c={c} compact />)}
+              {resolved.map(c => <ConflictCard key={c.id} c={c} compact onResolve={resolve} />)}
             </div>
           )}
         </div>
@@ -60,7 +91,15 @@ export function ConflictsPage() {
   );
 }
 
-function ConflictCard({ c, compact }: { c: Conflict; compact?: boolean }) {
+function ConflictCard({
+  c,
+  compact,
+  onResolve,
+}: {
+  c: Conflict;
+  compact?: boolean;
+  onResolve: (id: string, resolution: NonNullable<Conflict["resolution"]>) => void;
+}) {
   return (
     <div className={cn("card", compact && "bg-ink-50/40")}>
       <div className="px-4 py-3 border-b border-ink-100 flex items-center justify-between">
@@ -86,10 +125,10 @@ function ConflictCard({ c, compact }: { c: Conflict; compact?: boolean }) {
 
       {c.status === "pending" && (
         <div className="px-4 py-3 border-t border-ink-100 flex flex-wrap items-center gap-2 justify-end bg-ink-50/40">
-          <button className="btn-ghost btn-sm">Mark A authoritative</button>
-          <button className="btn-ghost btn-sm">Mark B authoritative</button>
-          <button className="btn-ghost btn-sm">
-            <GitMerge size={12} /> Both valid (context-dependent)
+          <button onClick={() => onResolve(c.id, "a-authoritative")} className="btn-ghost btn-sm">Mark A authoritative</button>
+          <button onClick={() => onResolve(c.id, "b-authoritative")} className="btn-ghost btn-sm">Mark B authoritative</button>
+          <button onClick={() => onResolve(c.id, "context-dependent")} className="btn-ghost btn-sm">
+            <GitMerge size={12} /> Both valid
           </button>
         </div>
       )}

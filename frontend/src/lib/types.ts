@@ -54,8 +54,14 @@ export interface ChatMessage {
   content: string;
   verified?: VerifiedClaim[];
   citations?: { n: number; fileId: string; fileName: string; chunkId: string; snippet: string }[];
-  trace?: { node: string; ms: number; meta?: string }[];
+  trace?: TraceEvent[];
   langsmithUrl?: string;
+}
+
+export interface TraceEvent {
+  node: string;
+  ms: number;
+  meta?: string;
 }
 
 export interface Conflict {
@@ -65,4 +71,13 @@ export interface Conflict {
   claimA: { fileId: string; fileName: string; text: string; chunkSnippet: string };
   claimB: { fileId: string; fileName: string; text: string; chunkSnippet: string };
   resolution?: "a-authoritative" | "b-authoritative" | "context-dependent";
+}
+
+export interface Stats {
+  files: number;
+  indexed: number;
+  processing: number;
+  chunks: number;
+  claims: number;
+  pendingConflicts: number;
 }

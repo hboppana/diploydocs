@@ -1,17 +1,47 @@
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, MessageSquare, RotateCw, Trash2, ChevronDown } from "lucide-react";
-import { useState } from "react";
-import { mockChunks, mockClaims, mockFiles } from "../lib/mockData";
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
 import { FileTypeIcon } from "../components/FileTypeIcon";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatBytes, timeAgo, cn } from "../lib/utils";
+import type { Chunk, Claim, FileDoc } from "../lib/types";
 
 export function FileDetailPage() {
   const { id = "" } = useParams();
-  const file = mockFiles.find(f => f.id === id) ?? mockFiles[0];
-  const claims = mockClaims[file.id] ?? [];
-  const chunks = mockChunks[file.id] ?? [];
-  const [openChunks, setOpenChunks] = useState<Record<string, boolean>>({ ch_3: true });
+  const [file, setFile] = useState<FileDoc | null>(null);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [chunks, setChunks] = useState<Chunk[]>([]);
+  const [openChunks, setOpenChunks] = useState<Record<string, boolean>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    Promise.all([api.file(id), api.claims(id), api.chunks(id)])
+      .then(([nextFile, nextClaims, nextChunks]) => {
+        setFile(nextFile);
+        setClaims(nextClaims);
+        setChunks(nextChunks);
+        setOpenChunks(nextChunks[0] ? { [nextChunks[0].id]: true } : {});
+        setError(null);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load file"));
+  }, [id]);
+
+  if (error) {
+    return (
+      <div className="px-6 py-6 max-w-7xl mx-auto">
+        <Link to="/" className="text-xs text-ink-500 hover:text-ink-900 inline-flex items-center gap-1">
+          <ArrowLeft size={12} /> Library
+        </Link>
+        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>
+      </div>
+    );
+  }
+
+  if (!file) {
+    return <div className="px-6 py-8 text-sm text-ink-500">Loading file...</div>;
+  }
 
   return (
     <div className="px-6 py-6 max-w-7xl mx-auto">
@@ -32,7 +62,7 @@ export function FileDetailPage() {
               <StatusBadge status={file.status} />
               {file.topic && <span className="chip">{file.topic}</span>}
               <span className="text-2xs font-mono text-ink-500">
-                {formatBytes(file.sizeBytes)} · uploaded {timeAgo(file.uploadedAt)}
+                {formatBytes(file.sizeBytes)} - uploaded {timeAgo(file.uploadedAt)}
               </span>
             </div>
           </div>
@@ -109,7 +139,7 @@ export function FileDetailPage() {
               ))}
             </ul>
             <p className="mt-3 pt-3 border-t border-ink-100 text-2xs text-ink-500">
-              Extracted by enrichment agent · LangGraph
+              Extracted by enrichment agent - LangGraph
             </p>
           </div>
 
