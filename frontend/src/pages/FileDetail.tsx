@@ -56,28 +56,23 @@ export function FileDetailPage() {
             Document
           </div>
           <article className="prose prose-sm max-w-none text-ink-800 leading-relaxed space-y-3">
-            <h2 className="text-lg font-semibold text-ink-900 tracking-tightish">{file.name.replace(/\.(pdf|md|txt|docx)$/, "")}</h2>
-            <p>
-              This service-side authentication specification supersedes <code className="text-xs font-mono">old-auth.md</code> as of v2.
-              All consumer services must migrate to the new token format and rotation flow by end of Q3.
-            </p>
-            <h3 className="font-semibold text-ink-900 mt-4">Session lifetime</h3>
-            <p>
-              All authenticated sessions expire 24 hours after issuance. Sliding refresh extends the window by 24 hours
-              on each successful refresh, capped at 30 days of continuous activity. Sessions inactive for more than 7 days
-              are revoked regardless of token validity.
-            </p>
-            <h3 className="font-semibold text-ink-900 mt-4">Refresh token rotation</h3>
-            <p>
-              Refresh tokens are single-use. On every refresh, the server issues a new refresh token and revokes the prior
-              one. If a previously rotated token is ever presented (replay), the full session family is revoked and the
-              user is signed out across all devices.
-            </p>
-            <h3 className="font-semibold text-ink-900 mt-4">Signing algorithm</h3>
-            <p>
-              Access tokens use EdDSA (Ed25519). HS256 is deprecated as of v2 — services still validating HS256-signed
-              tokens MUST migrate by end of Q3. Public keys are distributed via the JWKS endpoint with a 24-hour cache TTL.
-            </p>
+            <h2 className="text-lg font-semibold text-ink-900 tracking-tightish">
+              {file.name.replace(/\.(pdf|md|txt|docx)$/, "")}
+            </h2>
+            {file.body ? (
+              file.body.map((section, i) => (
+                <div key={i}>
+                  {section.heading && (
+                    <h3 className="font-semibold text-ink-900 mt-4">{section.heading}</h3>
+                  )}
+                  {section.paragraphs.map((p, j) => (
+                    <p key={j}>{p}</p>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <p className="text-ink-400 italic">Document body not yet extracted.</p>
+            )}
           </article>
         </div>
 

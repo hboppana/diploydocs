@@ -6,6 +6,11 @@ export type IndexStatus =
   | "indexed"
   | "failed";
 
+export interface BodySection {
+  heading?: string;
+  paragraphs: string[];
+}
+
 export interface FileDoc {
   id: string;
   name: string;
@@ -17,6 +22,7 @@ export interface FileDoc {
   topic?: string;
   chunkCount: number;
   claimCount: number;
+  body?: BodySection[];
 }
 
 export interface Claim {

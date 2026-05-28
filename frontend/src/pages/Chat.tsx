@@ -9,8 +9,31 @@ import { cn } from "../lib/utils";
 import { Logo } from "../components/Logo";
 
 export function ChatPage() {
-  const [messages] = useState<ChatMessage[]>(mockChat);
+  const [messages, setMessages] = useState<ChatMessage[]>(mockChat);
   const [input, setInput] = useState("");
+  const [pending, setPending] = useState(false);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || pending) return;
+    const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: "user", content: text };
+    setMessages((m) => [...m, userMsg]);
+    setInput("");
+    setPending(true);
+    setTimeout(() => {
+      setMessages((m) => [
+        ...m,
+        {
+          id: `a_${Date.now()}`,
+          role: "assistant",
+          content:
+            "Demo mode — the LangGraph backend isn't wired up yet. The example above shows what a fully grounded answer looks like: every claim verified against retrieved chunks, with green / amber / red badges.",
+        },
+      ]);
+      setPending(false);
+    }, 700);
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)]">
@@ -32,6 +55,7 @@ export function ChatPage() {
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="max-w-3xl mx-auto space-y-6">
           {messages.map((m) => (m.role === "user" ? <UserBubble key={m.id} m={m} /> : <AssistantBubble key={m.id} m={m} />))}
+          {pending && <PendingBubble />}
           <ClaimLegend />
         </div>
       </div>
@@ -39,7 +63,7 @@ export function ChatPage() {
       <div className="border-t border-ink-200 bg-white px-6 py-4">
         <div className="max-w-3xl mx-auto">
           <form
-            onSubmit={(e) => { e.preventDefault(); setInput(""); }}
+            onSubmit={submit}
             className="flex items-center gap-2 rounded-lg border border-ink-200 focus-within:border-brand-600 focus-within:ring-1 focus-within:ring-brand-600 bg-white px-3 py-2"
           >
             <input
@@ -47,8 +71,9 @@ export function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask a question — try 'how long do auth sessions last?'"
               className="flex-1 bg-transparent text-sm placeholder:text-ink-400 outline-none"
+              disabled={pending}
             />
-            <button type="submit" className="btn-brand btn-sm">
+            <button type="submit" className="btn-brand btn-sm" disabled={pending || !input.trim()}>
               <Send size={12} /> Send
             </button>
           </form>
@@ -57,6 +82,24 @@ export function ChatPage() {
             <span>Powered by LangGraph + Gemini Flash</span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function PendingBubble() {
+  return (
+    <div className="flex gap-3">
+      <div className="w-7 h-7 rounded-md overflow-hidden grid place-items-center shrink-0">
+        <Logo size={28} className="rounded-md" />
+      </div>
+      <div className="card p-4 flex items-center gap-2 text-xs text-ink-500">
+        <span className="inline-flex gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-ink-400 animate-pulse-soft" />
+          <span className="w-1.5 h-1.5 rounded-full bg-ink-400 animate-pulse-soft" style={{ animationDelay: "0.15s" }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-ink-400 animate-pulse-soft" style={{ animationDelay: "0.3s" }} />
+        </span>
+        Retrieving and verifying…
       </div>
     </div>
   );
