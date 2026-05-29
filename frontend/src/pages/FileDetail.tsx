@@ -1,32 +1,78 @@
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, MessageSquare, RotateCw, Trash2, ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, MessageSquare, RotateCw, Trash2, ChevronDown, Loader2, Pencil } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { FileTypeIcon } from "../components/FileTypeIcon";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatBytes, timeAgo, cn } from "../lib/utils";
 import type { Chunk, Claim, FileDoc } from "../lib/types";
 
+const TERMINAL = new Set(["indexed", "failed"]);
+
 export function FileDetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const [file, setFile] = useState<FileDoc | null>(null);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [openChunks, setOpenChunks] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<null | "reindex" | "delete">(null);
+
+  const load = useCallback(async () => {
+    const [nextFile, nextClaims, nextChunks] = await Promise.all([
+      api.file(id),
+      api.claims(id),
+      api.chunks(id),
+    ]);
+    setFile(nextFile);
+    setClaims(nextClaims);
+    setChunks(nextChunks);
+    setOpenChunks((prev) =>
+      Object.keys(prev).length ? prev : nextChunks[0] ? { [nextChunks[0].id]: true } : {},
+    );
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([api.file(id), api.claims(id), api.chunks(id)])
-      .then(([nextFile, nextClaims, nextChunks]) => {
-        setFile(nextFile);
-        setClaims(nextClaims);
-        setChunks(nextChunks);
-        setOpenChunks(nextChunks[0] ? { [nextChunks[0].id]: true } : {});
-        setError(null);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load file"));
+    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load file"));
+  }, [id, load]);
+
+  // Poll while the ingest pipeline is running (e.g. right after a re-index).
+  const processing = file != null && !TERMINAL.has(file.status);
+  useEffect(() => {
+    if (!processing) return;
+    const t = setInterval(() => {
+      load().catch(() => {});
+    }, 1500);
+    return () => clearInterval(t);
+  }, [processing, load]);
+
+  const handleReindex = useCallback(async () => {
+    setBusy("reindex");
+    setError(null);
+    try {
+      const updated = await api.reindexFile(id);
+      setFile(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Re-index failed");
+    } finally {
+      setBusy(null);
+    }
   }, [id]);
+
+  const handleDelete = useCallback(async () => {
+    if (!window.confirm("Delete this file? Its chunks, claims, and conflicts will be removed.")) return;
+    setBusy("delete");
+    setError(null);
+    try {
+      await api.deleteFile(id);
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+      setBusy(null);
+    }
+  }, [id, navigate]);
 
   if (error) {
     return (
@@ -68,11 +114,22 @@ export function FileDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button className="btn-ghost btn-sm">
-            <RotateCw size={12} /> Re-index
+          <Link to={`/files/${file.id}/edit`} className="btn-ghost btn-sm">
+            <Pencil size={12} /> Edit
+          </Link>
+          <button className="btn-ghost btn-sm" onClick={handleReindex} disabled={busy != null || processing}>
+            {busy === "reindex" || processing
+              ? <Loader2 size={12} className="animate-spin" />
+              : <RotateCw size={12} />}
+            Re-index
           </button>
-          <button className="btn-ghost btn-sm text-red-600 hover:bg-red-50 hover:border-red-200">
-            <Trash2 size={12} /> Delete
+          <button
+            className="btn-ghost btn-sm text-red-600 hover:bg-red-50 hover:border-red-200"
+            onClick={handleDelete}
+            disabled={busy != null}
+          >
+            {busy === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+            Delete
           </button>
           <Link to="/chat" className="btn-primary">
             <MessageSquare size={14} /> Ask about this file

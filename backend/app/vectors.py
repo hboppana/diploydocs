@@ -117,6 +117,20 @@ def search_similar_claims(query: str, k: int = 3, exclude_file_id: str | None = 
     return out
 
 
+def all_embeddings(kind: str = "chunks") -> dict:
+    """Fetch every stored vector + metadata for a collection, for projection/visualization."""
+    col = chunks_col() if kind == "chunks" else claims_col()
+    res = col.get(include=["embeddings", "metadatas", "documents"])
+    # Chroma returns `embeddings` as a numpy array, so avoid truthiness checks on it.
+    embeddings = res.get("embeddings")
+    return {
+        "ids": res.get("ids") or [],
+        "embeddings": [] if embeddings is None else list(embeddings),
+        "metadatas": res.get("metadatas") or [],
+        "documents": res.get("documents") or [],
+    }
+
+
 def delete_for_file(file_id: str) -> None:
     chunks_col().delete(where={"file_id": file_id})
     claims_col().delete(where={"file_id": file_id})

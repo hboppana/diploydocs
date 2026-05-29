@@ -1,4 +1,4 @@
-import type { ChatMessage, Chunk, Claim, Conflict, FileDoc, Stats, TraceEvent } from "./types";
+import type { ChatMessage, Chunk, Claim, Conflict, FileDoc, Projection, Stats, TraceEvent } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -26,6 +26,38 @@ export const api = {
       body: JSON.stringify({ resolution }),
     }),
   stats: () => fetchJson<Stats>("/stats"),
+  embeddingProjection: (kind: "chunks" | "claims" = "chunks") =>
+    fetchJson<Projection>(`/embeddings/projection?kind=${kind}`),
+  uploadFile: async (file: File): Promise<FileDoc> => {
+    const form = new FormData();
+    form.append("upload", file);
+    const res = await fetch(`${API_BASE}/files`, { method: "POST", body: form });
+    if (!res.ok) {
+      let detail = await res.text();
+      try {
+        detail = JSON.parse(detail).detail ?? detail;
+      } catch {
+        /* keep raw text */
+      }
+      throw new Error(detail || `Upload failed: ${res.status}`);
+    }
+    return res.json() as Promise<FileDoc>;
+  },
+  createDoc: (title: string, content: string) =>
+    fetchJson<FileDoc>("/files/compose", {
+      method: "POST",
+      body: JSON.stringify({ title, content }),
+    }),
+  updateFile: (id: string, title: string, content: string) =>
+    fetchJson<FileDoc>(`/files/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title, content }),
+    }),
+  reindexFile: (id: string) => fetchJson<FileDoc>(`/files/${id}/reindex`, { method: "POST" }),
+  deleteFile: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/files/${id}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 204) throw new Error((await res.text()) || `Delete failed: ${res.status}`);
+  },
   chat: (question: string, mode: "quick" | "research", onTrace?: (event: TraceEvent) => void) =>
     streamChat(question, mode, onTrace),
 };

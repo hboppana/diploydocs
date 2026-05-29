@@ -90,12 +90,14 @@ export const mockConflicts: Conflict[] = [
     detectedAt: "2026-05-27T14:13:00Z",
     status: "pending",
     claimA: {
+      claimId: "cl_seed_auth_session_24h",
       fileId: "f_auth_v2",
       fileName: "auth-spec-v2.pdf",
       text: "Sessions expire after 24 hours with sliding refresh.",
       chunkSnippet: "All authenticated sessions expire 24 hours after issuance...",
     },
     claimB: {
+      claimId: "cl_seed_security_session_1h",
       fileId: "f_sec_guidelines",
       fileName: "security-guidelines.md",
       text: "All user sessions must expire after 1 hour of inactivity.",

@@ -16,6 +16,7 @@ def _side(session: Session, claim_id: str) -> ConflictSide:
     file = session.get(db.File, claim.file_id)
     chunk = session.get(db.Chunk, claim.chunk_id)
     return ConflictSide(
+        claimId=claim_id,
         fileId=claim.file_id,
         fileName=file.name if file else "Unknown file",
         text=claim.text,

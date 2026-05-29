@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   LayoutGrid,
   MessageSquare,
+  ScatterChart,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const nav = [
   { to: "/", label: "Library", icon: LayoutGrid },
   { to: "/chat", label: "Ask", icon: MessageSquare },
   { to: "/conflicts", label: "Conflicts", icon: AlertTriangle },
+  { to: "/embeddings", label: "Embeddings", icon: ScatterChart },
 ];
 
 export function Layout() {
@@ -27,7 +29,8 @@ export function Layout() {
     pathname === "/" ? "Library" :
     pathname.startsWith("/files") ? "File" :
     pathname === "/chat" ? "Ask" :
-    pathname === "/conflicts" ? "Conflicts" : "";
+    pathname === "/conflicts" ? "Conflicts" :
+    pathname === "/embeddings" ? "Embeddings" : "";
 
   useEffect(() => {
     api.stats().then(setStats).catch(() => setStats(null));

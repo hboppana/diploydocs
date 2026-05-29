@@ -68,9 +68,25 @@ export interface Conflict {
   id: string;
   detectedAt: string;
   status: "pending" | "resolved";
-  claimA: { fileId: string; fileName: string; text: string; chunkSnippet: string };
-  claimB: { fileId: string; fileName: string; text: string; chunkSnippet: string };
+  claimA: { claimId: string; fileId: string; fileName: string; text: string; chunkSnippet: string };
+  claimB: { claimId: string; fileId: string; fileName: string; text: string; chunkSnippet: string };
   resolution?: "a-authoritative" | "b-authoritative" | "context-dependent";
+}
+
+export interface ProjectionPoint {
+  id: string;
+  x: number;
+  y: number;
+  fileId: string;
+  fileName: string;
+  snippet: string;
+}
+
+export interface Projection {
+  kind: "chunks" | "claims";
+  count: number;
+  points: ProjectionPoint[];
+  varianceExplained: [number, number];
 }
 
 export interface Stats {

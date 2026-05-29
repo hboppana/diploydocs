@@ -51,6 +51,7 @@ class ClaimOut(BaseModel):
 
 
 class ConflictSide(BaseModel):
+    claimId: str
     fileId: str
     fileName: str
     text: str
@@ -101,6 +102,11 @@ class ChatMessageOut(BaseModel):
     citations: list[Citation] | None = None
     trace: list[TraceEvent] | None = None
     langsmithUrl: str | None = None
+
+
+class ComposeRequest(BaseModel):
+    title: str
+    content: str  # Markdown — headings (#) become document sections.
 
 
 class ChatRequest(BaseModel):

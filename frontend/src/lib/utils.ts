@@ -8,6 +8,19 @@ export function formatBytes(n: number) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+import type { BodySection } from "./types";
+
+/** Render a file's stored body sections back into editable Markdown. */
+export function bodyToMarkdown(body: BodySection[] | undefined): string {
+  if (!body?.length) return "";
+  return body
+    .map((s) => {
+      const heading = s.heading ? `## ${s.heading}\n\n` : "";
+      return heading + s.paragraphs.join("\n\n");
+    })
+    .join("\n\n");
+}
+
 export function timeAgo(iso: string) {
   const then = new Date(iso).getTime();
   const now = Date.now();
